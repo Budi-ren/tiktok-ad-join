@@ -11,6 +11,11 @@
 // https://www.tiktok.com/@approximatelly888/video/0000000000000000000 and is
 // replaced with the real posted URL before submit. A placeholder URL is a
 // hard error, since a submitted entry must name a real posted video.
+//
+// Revised: the video id is now checked to be a plausible TikTok video id
+// (10-19 digits, not all zeros, never starting with 0), each failure has
+// its own error message, and the success output names the handle and the
+// video id separately.
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -40,12 +45,22 @@ if (!match) {
   console.error(`VIDEO.json url is not a full TikTok video address: ${video.url}`);
   process.exit(1);
 }
-if (!HANDLES.includes(`@${match[1]}`)) {
-  console.error(`VIDEO.json url names @${match[1]} but this entry posts from ${HANDLES.join(" or ")}`);
+const handle = `@${match[1]}`;
+const videoId = match[2];
+if (!HANDLES.includes(handle)) {
+  console.error(`VIDEO.json url names ${handle} but this entry posts from ${HANDLES.join(" or ")}`);
   process.exit(1);
 }
-if (/^0+$/.test(match[2])) {
+if (/^0+$/.test(videoId)) {
   console.error("VIDEO.json url still holds the placeholder video id; replace it with the posted video's address before submitting.");
+  process.exit(1);
+}
+if (videoId.length < 10 || videoId.length > 19) {
+  console.error(`VIDEO.json url has a video id of ${videoId.length} digits (${videoId}); a TikTok video id is 10-19 digits long.`);
+  process.exit(1);
+}
+if (videoId.startsWith("0")) {
+  console.error(`VIDEO.json url has a video id starting with 0 (${videoId}); a TikTok video id never starts with 0.`);
   process.exit(1);
 }
 
@@ -55,9 +70,13 @@ const summary = {
   competition: "bring-the-humans-03",
   title: "How to Join make.fun in 3 Steps",
   url: video.url,
+  handle,
+  video_id: videoId,
   placeholder: false,
   copied_to: join(outDir, "VIDEO.json"),
 };
 writeFileSync(join(outDir, "summary.json"), JSON.stringify(summary, null, 2) + "\n");
 console.log(`OK: VIDEO.json -> ${join(outDir, "VIDEO.json")}`);
+console.log(`Handle: ${handle}`);
+console.log(`Video id: ${videoId}`);
 console.log(`URL: ${video.url}`);
